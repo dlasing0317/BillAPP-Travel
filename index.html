@@ -12,37 +12,53 @@
     <title>TripSplit</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
-    <link rel="stylesheet" href="style.css?v=29.0">
+    <link rel="stylesheet" href="style.css?v=31.0">
     
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <style>
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+    </style>
 </head>
 <body ontouchstart="">
     <input type="file" id="camera-input" accept="image/*" style="display: none;">
 
-    <!-- 📱 PAGE 1: UNIFIED HOME -->
     <div id="page-home" class="app-page active">
         <div class="header-section">
             <h1 style="color: white; font-size: 2rem;">Trips</h1>
-            <button class="profile-settings-btn" id="btn-settings" style="position: relative; top: 0; right: 0;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-            </button>
+            <div style="display: flex; gap: 10px; position: relative; top: 0; right: 0;">
+                <button class="profile-settings-btn" id="btn-add-trip" style="position: static; width: 44px; height: 44px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </button>
+                <button class="profile-settings-btn" id="btn-settings" style="position: static; width: 44px; height: 44px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </button>
+            </div>
         </div>
         
-        <div class="content-scroll">
-            <div class="trip-card" id="card-seattle">
-                <div class="trip-bg" style="background: linear-gradient(135deg, #1e3a8a, #0f172a);"></div>
-                <div class="trip-content">
-                    <h2>Seattle Ski Trip 🏂</h2>
-                    <p>4 Members • Active</p>
+        <div class="content-scroll" id="trip-list-container">
+            <div class="trip-item-wrapper">
+                <div class="trip-item-delete" onclick="this.parentElement.remove()">Delete</div>
+                <div class="trip-card" id="card-seattle">
+                    <div class="trip-bg" style="background: linear-gradient(135deg, #1e3a8a, #0f172a);"></div>
+                    <div class="trip-content">
+                        <h2>Seattle Ski Trip 🏂</h2>
+                        <p>4 Members • Active</p>
+                    </div>
                 </div>
             </div>
             
-            <div class="trip-card">
-                <div class="trip-bg" style="background: linear-gradient(135deg, #831843, #0f172a);"></div>
-                <div class="trip-content">
-                    <h2>Tokyo 2026 🍣</h2>
-                    <p>Finished • Settled</p>
+            <div class="trip-item-wrapper">
+                <div class="trip-item-delete" onclick="this.parentElement.remove()">Delete</div>
+                <div class="trip-card">
+                    <div class="trip-bg" style="background: linear-gradient(135deg, #831843, #0f172a);"></div>
+                    <div class="trip-content">
+                        <h2>Tokyo 2026 🍣</h2>
+                        <p>Finished • Settled</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -54,18 +70,16 @@
         </div>
     </div>
 
-    <!-- 📱 PAGE 2: TRIP LEDGER -->
     <div id="page-trip" class="app-page">
         <div class="header-section">
             <button id="btn-back-home" class="icon-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
             </button>
-            <h2 style="color: white;">Seattle Ski Trip</h2>
+            <h2 id="trip-header-title" style="color: white; font-size: 1.4rem;">Trip Details</h2>
             <div style="width: 44px;"></div>
         </div>
         
         <div class="content-scroll" id="trip-timeline">
-            <!-- Timeline items will be injected here -->
             <div class="glass-box" style="margin-bottom: 15px; opacity: 0.5;">
                 <div style="text-align: center; color: var(--text-dim); font-size: 0.9rem;">Start of trip timeline</div>
             </div>
@@ -78,7 +92,6 @@
         </div>
     </div>
 
-    <!-- 📱 PAGE 3: SCANNER / ORB -->
     <div id="page-scanner" class="app-page dashboard-container">
         <div style="position: absolute; top: calc(env(safe-area-inset-top) + 20px); left: 20px; z-index: 100;">
             <button id="btn-cancel-scan" class="icon-btn">
@@ -136,7 +149,6 @@
 
             <div class="actions-panel">
                 <div class="action-wrapper">
-                    <!-- Changed to NEXT button -->
                     <button class="action-circle-btn share-btn" id="btn-next" style="color: var(--accent-blue); border-color: var(--accent-blue);">
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
                     </button>
@@ -150,9 +162,6 @@
         </div>
     </div>
 
-    <!-- 📦 MODALS -->
-    
-    <!-- 🌟 NEW: Assignment Modal (Ledger Details) -->
     <div id="assignment-modal" class="modal-overlay hidden">
         <div class="glass-modal-card" style="max-width: 90%; width: 380px;">
             <h3 class="modal-title" style="margin-bottom: 20px;">Expense Details</h3>
@@ -167,8 +176,6 @@
                     <div class="avatar-scroll" id="paid-by-container">
                         <div class="avatar-bubble active" data-name="Dennis">Dennis</div>
                         <div class="avatar-bubble" data-name="Amy">Amy</div>
-                        <div class="avatar-bubble" data-name="Friend A">Friend A</div>
-                        <div class="avatar-bubble" data-name="Friend B">Friend B</div>
                     </div>
                 </div>
 
@@ -177,20 +184,17 @@
                     <div class="avatar-scroll" id="split-between-container">
                         <div class="avatar-bubble checkable active" data-name="Dennis">Dennis</div>
                         <div class="avatar-bubble checkable active" data-name="Amy">Amy</div>
-                        <div class="avatar-bubble checkable active" data-name="Friend A">Friend A</div>
-                        <div class="avatar-bubble checkable active" data-name="Friend B">Friend B</div>
                     </div>
                 </div>
             </div>
             
             <div style="display: flex; gap: 10px; width: 100%; margin-top: 25px;">
                 <button class="modal-close-btn" id="btn-assignment-cancel" style="background: #21242D; color: #fff;">Cancel</button>
-                <button class="modal-close-btn" id="btn-assignment-save" style="background: var(--accent-blue); color: #000;">Save to Ledger</button>
+                <button class="modal-close-btn" id="btn-assignment-save" style="background: var(--accent-blue); color: #000;">Save</button>
             </div>
         </div>
     </div>
 
-    <!-- Existing Modals -->
     <div id="settings-modal" class="modal-overlay hidden">
         <div class="glass-modal-card">
             <h3 class="modal-title" style="margin-bottom: 25px;">Setup Profile</h3>
@@ -223,6 +227,46 @@
         </div>
     </div>
 
-    <script src="app.js?v=29.0"></script>
+    <div id="new-trip-modal" class="modal-overlay hidden">
+        <div class="glass-modal-card" style="width: 90%; max-width: 400px; padding: 25px 20px;">
+            <h3 class="modal-title" style="margin-bottom: 20px;">Create New Trip</h3>
+            
+            <div style="width: 100%; display: flex; flex-direction: column; gap: 15px; text-align: left;">
+                <div class="modal-input-glass" style="padding: 15px;">
+                    <input type="text" id="new-trip-name" placeholder="e.g. Tokyo Trip 2026 🗼" style="width: 100%; text-align: left; font-size: 1.1rem;">
+                </div>
+                
+                <div>
+                    <label style="color: var(--text-dim); font-size: 0.85rem; margin-left: 5px;">DATE RANGE</label>
+                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                        <div class="modal-input-glass" style="padding: 12px; flex: 1;">
+                            <input type="date" id="new-trip-start" value="2026-09-02" style="width: 100%; color: var(--text-main); text-align: center;">
+                        </div>
+                        <div class="modal-input-glass" style="padding: 12px; flex: 1;">
+                            <input type="date" id="new-trip-end" value="2026-09-10" style="width: 100%; color: var(--text-main); text-align: center;">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label style="color: var(--text-dim); font-size: 0.85rem; margin-left: 5px;">MEMBERS</label>
+                    <div class="modal-input-glass" style="padding: 10px 15px; margin-top: 5px; display: flex; justify-content: space-between;">
+                        <input type="text" id="new-member-input" placeholder="e.g. Amy" style="width: 70%; text-align: left;">
+                        <button id="btn-add-member" style="background: var(--accent-blue); color: #000; border: none; padding: 8px 15px; border-radius: 12px; font-weight: bold; cursor: pointer;">Add</button>
+                    </div>
+                </div>
+
+                <div class="avatar-scroll" id="new-trip-members-list" style="min-height: 50px; flex-wrap: wrap; overflow: visible;">
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; width: 100%; margin-top: 25px;">
+                <button class="modal-close-btn" id="btn-new-trip-cancel" style="background: #21242D; color: #fff;">Cancel</button>
+                <button class="modal-close-btn" id="btn-new-trip-save" style="background: var(--accent-blue); color: #000;">Create Trip</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js?v=31.0"></script>
 </body>
 </html>

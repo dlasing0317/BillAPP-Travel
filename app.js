@@ -1,5 +1,5 @@
 // 🌟 SPA Navigation State
-let currentTripMode = null; // null = quick split, 'seattle' = trip ledger
+let currentTripMode = null; 
 
 function navigateTo(pageId) {
     document.querySelectorAll('.app-page').forEach(p => p.classList.remove('active'));
@@ -7,22 +7,16 @@ function navigateTo(pageId) {
 }
 
 // 🌟 Home & Trip Events
-document.getElementById('card-seattle').addEventListener('click', () => {
-    currentTripMode = 'seattle';
-    navigateTo('page-trip');
-});
-
 document.getElementById('btn-back-home').addEventListener('click', () => {
     navigateTo('page-home');
 });
 
 document.getElementById('fab-home').addEventListener('click', () => {
-    currentTripMode = null; // Quick split mode
+    currentTripMode = null; 
     navigateTo('page-scanner');
 });
 
 document.getElementById('fab-trip').addEventListener('click', () => {
-    currentTripMode = 'seattle'; // Ledger mode
     navigateTo('page-scanner');
 });
 
@@ -31,16 +25,20 @@ document.getElementById('btn-cancel-scan').addEventListener('click', () => {
 });
 
 // 🌟 Avatar Bubble Selection Logic
-document.querySelectorAll('#paid-by-container .avatar-bubble').forEach(b => {
-    b.addEventListener('click', function() {
-        document.querySelectorAll('#paid-by-container .avatar-bubble').forEach(x => x.classList.remove('active'));
-        this.classList.add('active');
+document.querySelectorAll('#paid-by-container').forEach(container => {
+    container.addEventListener('click', function(e) {
+        if(e.target.classList.contains('avatar-bubble')) {
+            container.querySelectorAll('.avatar-bubble').forEach(x => x.classList.remove('active'));
+            e.target.classList.add('active');
+        }
     });
 });
 
-document.querySelectorAll('#split-between-container .checkable').forEach(b => {
-    b.addEventListener('click', function() {
-        this.classList.toggle('active');
+document.querySelectorAll('#split-between-container').forEach(container => {
+    container.addEventListener('click', function(e) {
+        if(e.target.classList.contains('checkable')) {
+            e.target.classList.toggle('active');
+        }
     });
 });
 
@@ -49,7 +47,7 @@ const btnSnap = document.getElementById('btn-snap');
 const cameraInput = document.getElementById('camera-input');
 const resultOrb = document.getElementById('result-orb');
 const perPersonAmountDisplay = document.getElementById('per-person-amount');
-const btnNext = document.getElementById('btn-next'); // Replaced btn-share
+const btnNext = document.getElementById('btn-next'); 
 const btnDone = document.getElementById('btn-done');
 const manualSubtotalInput = document.getElementById('manual-subtotal');
 const manualTaxInput = document.getElementById('manual-tax');
@@ -262,16 +260,13 @@ btnCropConfirm.addEventListener('click', async () => {
     }, 'image/jpeg'); 
 });
 
-// 🌟 NEW: Next Button Logic (Replaces Share Button)
 btnNext.addEventListener('click', async () => {
     if (currentGrandTotal === 0) { showNoticeModal('Empty Bill', ''); return; }
     
     if (currentTripMode) {
-        // We are in a Trip -> Open Assignment Modal
         expenseTitleInput.value = '';
         assignmentModal.classList.remove('hidden');
     } else {
-        // Quick Split Mode -> Fallback to standard native share
         const userName = localStorage.getItem('billapp_user_name') || 'Me';
         const shareText = `🍽️ ${userName} shared a bill\n\n🔹 Subtotal: $${scannedSubtotal.toFixed(2)}\n🔹 Tax: $${scannedTax.toFixed(2)}\n🔹 Tip (${globalTipValue}%): $${(scannedSubtotal * (globalTipValue / 100)).toFixed(2)}\n💰 Total: $${currentGrandTotal.toFixed(2)}\n\n👥 Split: ${globalSplitValue} ppl\n👉 Per Person: $${currentPerPerson.toFixed(2)}`;
         if (navigator.share) {
@@ -283,13 +278,11 @@ btnNext.addEventListener('click', async () => {
 btnAssignmentCancel.addEventListener('click', () => { assignmentModal.classList.add('hidden'); });
 
 btnAssignmentSave.addEventListener('click', () => {
-    // 1. Gather Data
     const title = expenseTitleInput.value.trim() || 'Untitled Expense';
     const activePayer = document.querySelector('#paid-by-container .avatar-bubble.active');
-    const payerName = activePayer ? activePayer.getAttribute('data-name') : 'Unknown';
+    const payerName = activePayer ? activePayer.innerText : 'Unknown';
     const splitCount = document.querySelectorAll('#split-between-container .avatar-bubble.active').length || 1;
     
-    // 2. Inject into Timeline
     const timeline = document.getElementById('trip-timeline');
     const newItem = document.createElement('div');
     newItem.className = 'glass-box';
@@ -301,10 +294,8 @@ btnAssignmentSave.addEventListener('click', () => {
         </div>
         <div style="color: var(--text-dim); font-size: 0.85rem; margin-top: 5px;">Paid by ${payerName} • Split with ${splitCount} ppl</div>
     `;
-    // Insert at the top
     timeline.insertBefore(newItem, timeline.firstChild);
 
-    // 3. Clean up and Navigate back to Ledger
     assignmentModal.classList.add('hidden');
     manualSubtotalInput.value = ''; manualTaxInput.value = '';
     autoResizeInput(manualSubtotalInput); autoResizeInput(manualTaxInput); calculateAndRender();
@@ -315,8 +306,221 @@ btnDone.addEventListener('click', () => {
     manualSubtotalInput.value = ''; manualTaxInput.value = '';
     autoResizeInput(manualSubtotalInput); autoResizeInput(manualTaxInput);
     lastScannedImageFile = null; tipDialControl.setValue(5); splitDialControl.setValue(1);
-    // If we are just clearing the screen, go back to home if not in a trip
     if (!currentTripMode) navigateTo('page-home');
 });
 
 autoResizeInput(manualSubtotalInput); autoResizeInput(manualTaxInput); calculateAndRender();
+
+
+// ==========================================
+// 🌟 SWIPE TO DELETE LOGIC (防呆機制已包裝)
+// ==========================================
+function setupSwipeToDelete(cardElement) {
+    let startX = 0;
+    let currentX = 0;
+    let isDragging = false;
+    
+    cardElement.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        isDragging = true;
+    }, {passive: true});
+
+    cardElement.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        currentX = e.touches[0].clientX;
+        const diff = startX - currentX;
+        
+        if (diff > 40) { // 向左拉超過 40px 先當 Swipe，防呆機制！
+            cardElement.classList.add('swiped');
+        } else if (diff < -20) { // 向右推返埋
+            cardElement.classList.remove('swiped');
+        }
+    }, {passive: true});
+
+    cardElement.addEventListener('touchend', () => {
+        isDragging = false;
+    });
+}
+
+// 點擊空白位自動收埋所有 Delete 掣
+document.addEventListener('touchstart', (e) => {
+    if (!e.target.closest('.trip-item-wrapper')) {
+        document.querySelectorAll('.trip-card.swiped').forEach(card => {
+            card.classList.remove('swiped');
+        });
+    }
+}, {passive: true});
+
+// 幫現有 Hardcode 嘅 Card 加返 Event Listener
+document.querySelectorAll('.trip-card').forEach(card => {
+    setupSwipeToDelete(card);
+    
+    // 原本 Click 入去 Trip Ledger 嘅 Logic
+    card.addEventListener('click', function(e) {
+        if (this.classList.contains('swiped')) return; // 拉緊唔俾 Click！
+        currentTripMode = 'dummy_trip';
+        navigateTo('page-trip');
+    });
+});
+
+
+// ==========================================
+// 🌟 TRIP CREATION LOGIC (WITH MEMBERS & DATES)
+// ==========================================
+
+const btnAddTrip = document.getElementById('btn-add-trip');
+const newTripModal = document.getElementById('new-trip-modal');
+const btnNewTripCancel = document.getElementById('btn-new-trip-cancel');
+const btnNewTripSave = document.getElementById('btn-new-trip-save');
+const newTripNameInput = document.getElementById('new-trip-name');
+const newTripStartInput = document.getElementById('new-trip-start');
+const newTripEndInput = document.getElementById('new-trip-end');
+const newMemberInput = document.getElementById('new-member-input');
+const btnAddMember = document.getElementById('btn-add-member');
+const newTripMembersList = document.getElementById('new-trip-members-list');
+
+let currentNewTripMembers = ['Dennis']; 
+
+function renderNewTripMembers() {
+    newTripMembersList.innerHTML = '';
+    currentNewTripMembers.forEach(member => {
+        const bubble = document.createElement('div');
+        bubble.className = 'avatar-bubble';
+        bubble.style.display = 'flex';
+        bubble.style.alignItems = 'center';
+        bubble.innerHTML = `
+            ${member} 
+            <span class="remove-btn" style="color: #ff4444; margin-left: 8px; font-size: 1.2rem; cursor: pointer; line-height: 1;">×</span>
+        `;
+        
+        bubble.querySelector('.remove-btn').addEventListener('click', () => {
+            currentNewTripMembers = currentNewTripMembers.filter(m => m !== member);
+            renderNewTripMembers();
+        });
+        
+        newTripMembersList.appendChild(bubble);
+    });
+}
+
+btnAddMember.addEventListener('click', () => {
+    const name = newMemberInput.value.trim();
+    if (name && !currentNewTripMembers.includes(name)) {
+        currentNewTripMembers.push(name);
+        newMemberInput.value = '';
+        renderNewTripMembers();
+    }
+});
+
+newMemberInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        btnAddMember.click();
+    }
+});
+
+btnAddTrip.addEventListener('click', () => {
+    newTripNameInput.value = ''; 
+    newMemberInput.value = '';
+    currentNewTripMembers = ['Dennis']; 
+    renderNewTripMembers();
+    newTripModal.classList.remove('hidden');
+});
+
+btnNewTripCancel.addEventListener('click', () => {
+    newTripModal.classList.add('hidden');
+});
+
+btnNewTripSave.addEventListener('click', () => {
+    const tripName = newTripNameInput.value.trim();
+    const startDate = newTripStartInput.value;
+    const endDate = newTripEndInput.value;
+
+    if (!tripName) {
+        showNoticeModal('Error', '大佬，打個 Trip Name 先啦！');
+        return;
+    }
+    if (currentNewTripMembers.length === 0) {
+        showNoticeModal('Error', '起碼要有自己一個 Member 啦！');
+        return;
+    }
+    
+    createNewTripCard(tripName, startDate, endDate, currentNewTripMembers);
+    newTripModal.classList.add('hidden');
+});
+
+function createNewTripCard(name, startDate, endDate, membersArray) {
+    const tripList = document.getElementById('trip-list-container');
+    
+    const colors = [
+        ['#1e3a8a', '#0f172a'], ['#831843', '#0f172a'], 
+        ['#064e3b', '#0f172a'], ['#450a0a', '#0f172a']
+    ];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    
+    const startObj = new Date(startDate);
+    const endObj = new Date(endDate);
+    const dateDisplay = `${startObj.toLocaleString('en-US', {month: 'short'})} ${startObj.getDate() + 1} - ${endObj.toLocaleString('en-US', {month: 'short'})} ${endObj.getDate() + 1}`;
+
+    // 建立 Wrapper 裝住 Delete 掣同埋 Card
+    const wrapper = document.createElement('div');
+    wrapper.className = 'trip-item-wrapper';
+    
+    const deleteBtn = document.createElement('div');
+    deleteBtn.className = 'trip-item-delete';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', () => {
+        wrapper.remove(); // 撳 Delete 就成個 Wrapper 鏟走
+    });
+
+    const newCard = document.createElement('div');
+    newCard.className = 'trip-card';
+    newCard.innerHTML = `
+        <div class="trip-bg" style="background: linear-gradient(135deg, ${randomColor[0]}, ${randomColor[1]});"></div>
+        <div class="trip-content">
+            <h2>${name}</h2>
+            <p>${membersArray.length} Members • ${dateDisplay}</p>
+        </div>
+    `;
+    
+    // 加返 Swipe 防呆
+    setupSwipeToDelete(newCard);
+    
+    newCard.addEventListener('click', () => {
+        if (newCard.classList.contains('swiped')) return; // 唔好拉開咗 Delete 掣都 Click 到入去
+        
+        currentTripMode = name; 
+        document.getElementById('trip-header-title').textContent = name;
+        
+        document.getElementById('trip-timeline').innerHTML = `
+            <div class="glass-box" style="margin-bottom: 15px; opacity: 0.5;">
+                <div style="text-align: center; color: var(--text-dim); font-size: 0.9rem;">Start of trip timeline</div>
+            </div>
+        `;
+        
+        updateAssignmentModalMembers(membersArray);
+        navigateTo('page-trip');
+    });
+    
+    wrapper.appendChild(deleteBtn);
+    wrapper.appendChild(newCard);
+    tripList.insertBefore(wrapper, tripList.firstChild);
+}
+
+function updateAssignmentModalMembers(membersArray) {
+    const paidByContainer = document.getElementById('paid-by-container');
+    const splitContainer = document.getElementById('split-between-container');
+    
+    paidByContainer.innerHTML = '';
+    splitContainer.innerHTML = '';
+    
+    membersArray.forEach((member, index) => {
+        const paidBubble = document.createElement('div');
+        paidBubble.className = `avatar-bubble ${index === 0 ? 'active' : ''}`;
+        paidBubble.textContent = member;
+        paidByContainer.appendChild(paidBubble);
+        
+        const splitBubble = document.createElement('div');
+        splitBubble.className = 'avatar-bubble checkable active';
+        splitBubble.textContent = member;
+        splitContainer.appendChild(splitBubble);
+    });
+}
