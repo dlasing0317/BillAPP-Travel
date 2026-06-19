@@ -1,10 +1,84 @@
+// ==========================================
+// 🌟 FIREBASE SETUP (自己換走啲 Config 呀！)
+// ==========================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyADViQdzsf1MTmsDnf_NiQp0eB-EPFsgxI",
+    authDomain: "billapp-travel.firebaseapp.com",
+    projectId: "billapp-travel",
+    storageBucket: "billapp-travel.firebasestorage.app",
+    messagingSenderId: "47415537906",
+    appId: "1:47415537906:web:c401cdc2dd8bd22d10e06b"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
 // 🌟 SPA Navigation State
 let currentTripMode = null; 
+let currentTripId = null; // Track 住 Firebase ID
 
 function navigateTo(pageId) {
     document.querySelectorAll('.app-page').forEach(p => p.classList.remove('active'));
     document.getElementById(pageId).classList.add('active');
 }
+
+// ==========================================
+// 🌟 FIREBASE DATA FETCHING & RENDERING
+// ==========================================
+async function loadTrips() {
+    const tripList = document.getElementById('trip-list-container');
+    tripList.innerHTML = ''; // 清空 UI
+    
+    try {
+        const q = query(collection(db, "trips"), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        
+        if (querySnapshot.empty) {
+            tripList.innerHTML = '<div style="text-align: center; color: var(--text-dim); margin-top: 20px;">No Trips yet. Click + to create.</div>';
+            return;
+        }
+
+        querySnapshot.forEach((docSnap) => {
+            renderTripCard(docSnap.id, docSnap.data());
+        });
+    } catch (e) {
+        console.error("Error loading trips: ", e);
+        tripList.innerHTML = '<div style="text-align: center; color: #ff4444; margin-top: 20px;">Failed to load trips. Check Firebase Config.</div>';
+    }
+}
+
+async function loadExpenses(tripId) {
+    const timeline = document.getElementById('trip-timeline');
+    timeline.innerHTML = '<div class="glass-box" style="margin-bottom: 15px; opacity: 0.5;"><div style="text-align: center; color: var(--text-dim); font-size: 0.9rem;">Start of trip timeline</div></div>';
+    
+    try {
+        const q = query(collection(db, `trips/${tripId}/expenses`), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        
+        querySnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const newItem = document.createElement('div');
+            newItem.className = 'glass-box';
+            newItem.style.marginBottom = '15px';
+            newItem.innerHTML = `
+                <div style="display:flex; justify-content: space-between; align-items: center;">
+                    <div style="color: white; font-weight: 600; font-size: 1.1rem;">${data.title}</div>
+                    <div style="color: var(--accent-blue); font-size: 1.4rem; font-weight: 700;">$${data.amount.toFixed(2)}</div>
+                </div>
+                <div style="color: var(--text-dim); font-size: 0.85rem; margin-top: 5px;">Paid by ${data.paidBy} • Split with ${data.splitCount} ppl</div>
+            `;
+            timeline.insertBefore(newItem, timeline.firstChild);
+        });
+    } catch (e) {
+        console.error("Error loading expenses: ", e);
+    }
+}
+
+// Run on boot
+loadTrips();
 
 // 🌟 Home & Trip Events
 document.getElementById('btn-back-home').addEventListener('click', () => {
@@ -13,6 +87,7 @@ document.getElementById('btn-back-home').addEventListener('click', () => {
 
 document.getElementById('fab-home').addEventListener('click', () => {
     currentTripMode = null; 
+    currentTripId = null;
     navigateTo('page-scanner');
 });
 
@@ -218,7 +293,7 @@ btnCropConfirm.addEventListener('click', async () => {
         btnSnap.classList.add('scanning'); btnSnap.style.pointerEvents = 'none';
 
         try {
-            const result = await Tesseract.recognize(blob, 'eng');
+            const result = await window.Tesseract.recognize(blob, 'eng');
             let cleanText = result.data.text.replace(/(\d+)\s*[_\.,]\s*(\d+)/g, "$1.$2").replace(/\d+(?:\.\d+)?\s*%/g, "");
             const allAmounts = [...cleanText.matchAll(/\b\d{1,4}(?:,\d{3})*\.\d{2}\b/g)].map(m => parseFloat(m[0].replace(',', ''))).sort((a, b) => b - a);
             let finalSub = 0, finalTax = 0, finalTotal = 0;
@@ -277,29 +352,52 @@ btnNext.addEventListener('click', async () => {
 
 btnAssignmentCancel.addEventListener('click', () => { assignmentModal.classList.add('hidden'); });
 
-btnAssignmentSave.addEventListener('click', () => {
+// 🌟 SAVE EXPENSE TO FIREBASE
+btnAssignmentSave.addEventListener('click', async () => {
     const title = expenseTitleInput.value.trim() || 'Untitled Expense';
     const activePayer = document.querySelector('#paid-by-container .avatar-bubble.active');
     const payerName = activePayer ? activePayer.innerText : 'Unknown';
-    const splitCount = document.querySelectorAll('#split-between-container .avatar-bubble.active').length || 1;
     
-    const timeline = document.getElementById('trip-timeline');
-    const newItem = document.createElement('div');
-    newItem.className = 'glass-box';
-    newItem.style.marginBottom = '15px';
-    newItem.innerHTML = `
-        <div style="display:flex; justify-content: space-between; align-items: center;">
-            <div style="color: white; font-weight: 600; font-size: 1.1rem;">${title}</div>
-            <div style="color: var(--accent-blue); font-size: 1.4rem; font-weight: 700;">$${currentGrandTotal.toFixed(2)}</div>
-        </div>
-        <div style="color: var(--text-dim); font-size: 0.85rem; margin-top: 5px;">Paid by ${payerName} • Split with ${splitCount} ppl</div>
-    `;
-    timeline.insertBefore(newItem, timeline.firstChild);
+    // Build array of who is splitting
+    const splitNodes = document.querySelectorAll('#split-between-container .avatar-bubble.active');
+    const splitCount = splitNodes.length || 1;
+    let splitArray = [];
+    splitNodes.forEach(n => splitArray.push(n.innerText));
+    
+    const expenseData = {
+        title: title,
+        amount: currentGrandTotal,
+        paidBy: payerName,
+        splitBetween: splitArray,
+        splitCount: splitCount,
+        createdAt: new Date().toISOString()
+    };
 
-    assignmentModal.classList.add('hidden');
-    manualSubtotalInput.value = ''; manualTaxInput.value = '';
-    autoResizeInput(manualSubtotalInput); autoResizeInput(manualTaxInput); calculateAndRender();
-    navigateTo('page-trip');
+    try {
+        // Save to Firebase Subcollection (trips/{tripId}/expenses)
+        await addDoc(collection(db, `trips/${currentTripId}/expenses`), expenseData);
+        
+        // Immediate UI update so user doesn't wait
+        const timeline = document.getElementById('trip-timeline');
+        const newItem = document.createElement('div');
+        newItem.className = 'glass-box';
+        newItem.style.marginBottom = '15px';
+        newItem.innerHTML = `
+            <div style="display:flex; justify-content: space-between; align-items: center;">
+                <div style="color: white; font-weight: 600; font-size: 1.1rem;">${title}</div>
+                <div style="color: var(--accent-blue); font-size: 1.4rem; font-weight: 700;">$${currentGrandTotal.toFixed(2)}</div>
+            </div>
+            <div style="color: var(--text-dim); font-size: 0.85rem; margin-top: 5px;">Paid by ${payerName} • Split with ${splitCount} ppl</div>
+        `;
+        timeline.insertBefore(newItem, timeline.firstChild);
+
+        assignmentModal.classList.add('hidden');
+        manualSubtotalInput.value = ''; manualTaxInput.value = '';
+        autoResizeInput(manualSubtotalInput); autoResizeInput(manualTaxInput); calculateAndRender();
+        navigateTo('page-trip');
+    } catch (e) {
+        showNoticeModal('Error', 'Failed to save expense to DB');
+    }
 });
 
 btnDone.addEventListener('click', () => { 
@@ -313,7 +411,7 @@ autoResizeInput(manualSubtotalInput); autoResizeInput(manualTaxInput); calculate
 
 
 // ==========================================
-// 🌟 SWIPE TO DELETE LOGIC (防呆機制已包裝)
+// 🌟 SWIPE TO DELETE LOGIC 
 // ==========================================
 function setupSwipeToDelete(cardElement) {
     let startX = 0;
@@ -330,9 +428,9 @@ function setupSwipeToDelete(cardElement) {
         currentX = e.touches[0].clientX;
         const diff = startX - currentX;
         
-        if (diff > 40) { // 向左拉超過 40px 先當 Swipe，防呆機制！
+        if (diff > 40) { 
             cardElement.classList.add('swiped');
-        } else if (diff < -20) { // 向右推返埋
+        } else if (diff < -20) { 
             cardElement.classList.remove('swiped');
         }
     }, {passive: true});
@@ -342,7 +440,6 @@ function setupSwipeToDelete(cardElement) {
     });
 }
 
-// 點擊空白位自動收埋所有 Delete 掣
 document.addEventListener('touchstart', (e) => {
     if (!e.target.closest('.trip-item-wrapper')) {
         document.querySelectorAll('.trip-card.swiped').forEach(card => {
@@ -351,23 +448,10 @@ document.addEventListener('touchstart', (e) => {
     }
 }, {passive: true});
 
-// 幫現有 Hardcode 嘅 Card 加返 Event Listener
-document.querySelectorAll('.trip-card').forEach(card => {
-    setupSwipeToDelete(card);
-    
-    // 原本 Click 入去 Trip Ledger 嘅 Logic
-    card.addEventListener('click', function(e) {
-        if (this.classList.contains('swiped')) return; // 拉緊唔俾 Click！
-        currentTripMode = 'dummy_trip';
-        navigateTo('page-trip');
-    });
-});
-
 
 // ==========================================
-// 🌟 TRIP CREATION LOGIC (WITH MEMBERS & DATES)
+// 🌟 TRIP CREATION & FIREBASE SAVING
 // ==========================================
-
 const btnAddTrip = document.getElementById('btn-add-trip');
 const newTripModal = document.getElementById('new-trip-modal');
 const btnNewTripCancel = document.getElementById('btn-new-trip-cancel');
@@ -412,9 +496,7 @@ btnAddMember.addEventListener('click', () => {
 });
 
 newMemberInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        btnAddMember.click();
-    }
+    if (e.key === 'Enter') btnAddMember.click();
 });
 
 btnAddTrip.addEventListener('click', () => {
@@ -429,46 +511,72 @@ btnNewTripCancel.addEventListener('click', () => {
     newTripModal.classList.add('hidden');
 });
 
-btnNewTripSave.addEventListener('click', () => {
+// 🌟 PUSH TO FIREBASE
+btnNewTripSave.addEventListener('click', async () => {
     const tripName = newTripNameInput.value.trim();
     const startDate = newTripStartInput.value;
     const endDate = newTripEndInput.value;
 
-    if (!tripName) {
-        showNoticeModal('Error', '大佬，打個 Trip Name 先啦！');
-        return;
-    }
-    if (currentNewTripMembers.length === 0) {
-        showNoticeModal('Error', '起碼要有自己一個 Member 啦！');
-        return;
-    }
+    if (!tripName) { showNoticeModal('Error', '大佬，打個 Trip Name 先啦！'); return; }
+    if (currentNewTripMembers.length === 0) { showNoticeModal('Error', '起碼要有自己一個 Member 啦！'); return; }
     
-    createNewTripCard(tripName, startDate, endDate, currentNewTripMembers);
-    newTripModal.classList.add('hidden');
+    // Disable 制費事俾你狂㩒
+    btnNewTripSave.disabled = true;
+    btnNewTripSave.textContent = 'Saving...';
+
+    const tripData = {
+        name: tripName,
+        startDate: startDate,
+        endDate: endDate,
+        members: currentNewTripMembers,
+        createdAt: new Date().toISOString()
+    };
+
+    try {
+        const docRef = await addDoc(collection(db, "trips"), tripData);
+        renderTripCard(docRef.id, tripData); // Render locally
+        newTripModal.classList.add('hidden');
+    } catch (e) {
+        showNoticeModal('Error', 'Save failed! Check Firebase config.');
+    } finally {
+        btnNewTripSave.disabled = false;
+        btnNewTripSave.textContent = 'Create Trip';
+    }
 });
 
-function createNewTripCard(name, startDate, endDate, membersArray) {
+// 🌟 RENDER UI CARD
+function renderTripCard(id, data) {
     const tripList = document.getElementById('trip-list-container');
     
+    // Remove "Loading" or "No Trips" msg if it exists
+    const msg = tripList.querySelector('div[style*="text-align: center"]');
+    if (msg) msg.remove();
+
     const colors = [
         ['#1e3a8a', '#0f172a'], ['#831843', '#0f172a'], 
         ['#064e3b', '#0f172a'], ['#450a0a', '#0f172a']
     ];
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
     
-    const startObj = new Date(startDate);
-    const endObj = new Date(endDate);
-    const dateDisplay = `${startObj.toLocaleString('en-US', {month: 'short'})} ${startObj.getDate() + 1} - ${endObj.toLocaleString('en-US', {month: 'short'})} ${endObj.getDate() + 1}`;
+    const startObj = new Date(data.startDate);
+    const endObj = new Date(data.endDate);
+    const dateDisplay = `${startObj.toLocaleString('en-US', {month: 'short'})} ${startObj.getDate()} - ${endObj.toLocaleString('en-US', {month: 'short'})} ${endObj.getDate()}`;
 
-    // 建立 Wrapper 裝住 Delete 掣同埋 Card
     const wrapper = document.createElement('div');
     wrapper.className = 'trip-item-wrapper';
+    wrapper.setAttribute('data-id', id);
     
+    // 🌟 DELETE FROM FIREBASE
     const deleteBtn = document.createElement('div');
     deleteBtn.className = 'trip-item-delete';
     deleteBtn.textContent = 'Delete';
-    deleteBtn.addEventListener('click', () => {
-        wrapper.remove(); // 撳 Delete 就成個 Wrapper 鏟走
+    deleteBtn.addEventListener('click', async () => {
+        try {
+            await deleteDoc(doc(db, "trips", id));
+            wrapper.remove(); 
+        } catch(e) {
+            alert('Delete fail!');
+        }
     });
 
     const newCard = document.createElement('div');
@@ -476,27 +584,25 @@ function createNewTripCard(name, startDate, endDate, membersArray) {
     newCard.innerHTML = `
         <div class="trip-bg" style="background: linear-gradient(135deg, ${randomColor[0]}, ${randomColor[1]});"></div>
         <div class="trip-content">
-            <h2>${name}</h2>
-            <p>${membersArray.length} Members • ${dateDisplay}</p>
+            <h2>${data.name}</h2>
+            <p>${data.members.length} Members • ${dateDisplay}</p>
         </div>
     `;
     
-    // 加返 Swipe 防呆
     setupSwipeToDelete(newCard);
     
     newCard.addEventListener('click', () => {
-        if (newCard.classList.contains('swiped')) return; // 唔好拉開咗 Delete 掣都 Click 到入去
+        if (newCard.classList.contains('swiped')) return; 
         
-        currentTripMode = name; 
-        document.getElementById('trip-header-title').textContent = name;
+        currentTripMode = data.name; 
+        currentTripId = id; // IMPORTANT: Set current Firebase ID
         
-        document.getElementById('trip-timeline').innerHTML = `
-            <div class="glass-box" style="margin-bottom: 15px; opacity: 0.5;">
-                <div style="text-align: center; color: var(--text-dim); font-size: 0.9rem;">Start of trip timeline</div>
-            </div>
-        `;
+        document.getElementById('trip-header-title').textContent = data.name;
+        updateAssignmentModalMembers(data.members);
         
-        updateAssignmentModalMembers(membersArray);
+        // 🌟 LOAD EXPENSES FROM FIREBASE
+        loadExpenses(id);
+        
         navigateTo('page-trip');
     });
     

@@ -12,7 +12,7 @@
     <title>TripSplit</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
-    <link rel="stylesheet" href="style.css?v=31.0">
+    <link rel="stylesheet" href="style.css?v=32.0">
     
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
@@ -40,27 +40,7 @@
         </div>
         
         <div class="content-scroll" id="trip-list-container">
-            <div class="trip-item-wrapper">
-                <div class="trip-item-delete" onclick="this.parentElement.remove()">Delete</div>
-                <div class="trip-card" id="card-seattle">
-                    <div class="trip-bg" style="background: linear-gradient(135deg, #1e3a8a, #0f172a);"></div>
-                    <div class="trip-content">
-                        <h2>Seattle Ski Trip 🏂</h2>
-                        <p>4 Members • Active</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="trip-item-wrapper">
-                <div class="trip-item-delete" onclick="this.parentElement.remove()">Delete</div>
-                <div class="trip-card">
-                    <div class="trip-bg" style="background: linear-gradient(135deg, #831843, #0f172a);"></div>
-                    <div class="trip-content">
-                        <h2>Tokyo 2026 🍣</h2>
-                        <p>Finished • Settled</p>
-                    </div>
-                </div>
-            </div>
+            <div style="text-align: center; color: var(--text-dim); margin-top: 20px;" id="loading-trips">Loading Trips...</div>
         </div>
 
         <div class="fab-container">
@@ -174,16 +154,12 @@
                 <div>
                     <label style="color: var(--text-dim); font-size: 0.85rem; margin-left: 5px;">PAID BY</label>
                     <div class="avatar-scroll" id="paid-by-container">
-                        <div class="avatar-bubble active" data-name="Dennis">Dennis</div>
-                        <div class="avatar-bubble" data-name="Amy">Amy</div>
                     </div>
                 </div>
 
                 <div>
                     <label style="color: var(--text-dim); font-size: 0.85rem; margin-left: 5px;">SPLIT BETWEEN</label>
                     <div class="avatar-scroll" id="split-between-container">
-                        <div class="avatar-bubble checkable active" data-name="Dennis">Dennis</div>
-                        <div class="avatar-bubble checkable active" data-name="Amy">Amy</div>
                     </div>
                 </div>
             </div>
@@ -267,6 +243,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=31.0"></script>
+    <script type="module" src="app.js?v=32.0"></script>
 </body>
 </html>
