@@ -12,12 +12,14 @@
     <title>TripSplit</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
-    <link rel="stylesheet" href="style.css?v=32.0">
+    <link rel="stylesheet" href="style.css?v=33.0">
     
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     <style>
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+        /* 隱藏 Chrome 預設箭嘴 */
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
 <body ontouchstart="">
@@ -56,7 +58,12 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
             </button>
             <h2 id="trip-header-title" style="color: white; font-size: 1.4rem;">Trip Details</h2>
-            <div style="width: 44px;"></div>
+            <button class="profile-settings-btn" id="btn-manual-add" style="position: static; width: 44px; height: 44px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </button>
         </div>
         
         <div class="content-scroll" id="trip-timeline">
@@ -142,31 +149,87 @@
         </div>
     </div>
 
-    <div id="assignment-modal" class="modal-overlay hidden">
-        <div class="glass-modal-card" style="max-width: 90%; width: 380px;">
-            <h3 class="modal-title" style="margin-bottom: 20px;">Expense Details</h3>
+    <div id="basic-expense-modal" class="modal-overlay hidden">
+        <div class="glass-modal-card" style="width: 90%; max-width: 400px; padding: 25px 20px;">
+            <h3 class="modal-title" style="margin-bottom: 20px;">Add Expense</h3>
             
-            <div style="width: 100%; display: flex; flex-direction: column; gap: 20px; text-align: left;">
-                <div class="modal-input-glass" style="justify-content: flex-start; padding: 15px;">
-                    <input type="text" id="expense-title" placeholder="e.g. Ski Resort Dinner" style="width: 100%; text-align: left; font-size: 1.2rem;">
+            <div style="width: 100%; display: flex; flex-direction: column; gap: 15px; text-align: left;">
+                <div class="modal-input-glass" style="padding: 15px;">
+                    <input type="text" id="basic-expense-title" placeholder="What did you pay for?" style="width: 100%; text-align: left; font-size: 1.1rem;">
+                </div>
+                
+                <div class="modal-input-glass" style="padding: 15px;">
+                    <span style="color: var(--text-dim); font-size: 1.2rem;">$</span>
+                    <input type="number" id="basic-expense-amount" placeholder="0.00" step="0.01" style="width: 80%; text-align: right; font-size: 1.4rem; font-weight: bold;">
                 </div>
 
                 <div>
-                    <label style="color: var(--text-dim); font-size: 0.85rem; margin-left: 5px;">PAID BY</label>
-                    <div class="avatar-scroll" id="paid-by-container">
-                    </div>
-                </div>
-
-                <div>
-                    <label style="color: var(--text-dim); font-size: 0.85rem; margin-left: 5px;">SPLIT BETWEEN</label>
-                    <div class="avatar-scroll" id="split-between-container">
-                    </div>
+                    <label style="color: var(--text-dim); font-size: 0.85rem; margin-left: 5px;">PAID BY (預設全體平分)</label>
+                    <div class="avatar-scroll" id="basic-paid-by-container" style="margin-top: 5px;">
+                        </div>
                 </div>
             </div>
             
             <div style="display: flex; gap: 10px; width: 100%; margin-top: 25px;">
+                <button class="modal-close-btn" id="btn-basic-cancel" style="background: #21242D; color: #fff;">Cancel</button>
+                <button class="modal-close-btn" id="btn-basic-save" style="background: var(--accent-blue); color: #000;">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="assignment-modal" class="modal-overlay hidden">
+        <div class="glass-modal-card" style="max-width: 90%; width: 380px;">
+            <h3 class="modal-title" style="margin-bottom: 20px;">Expense Details</h3>
+            <div style="width: 100%; display: flex; flex-direction: column; gap: 20px; text-align: left;">
+                <div class="modal-input-glass" style="justify-content: flex-start; padding: 15px;">
+                    <input type="text" id="expense-title" placeholder="e.g. Ski Resort Dinner" style="width: 100%; text-align: left; font-size: 1.2rem;">
+                </div>
+                <div>
+                    <label style="color: var(--text-dim); font-size: 0.85rem; margin-left: 5px;">PAID BY</label>
+                    <div class="avatar-scroll" id="paid-by-container"></div>
+                </div>
+                <div>
+                    <label style="color: var(--text-dim); font-size: 0.85rem; margin-left: 5px;">SPLIT BETWEEN</label>
+                    <div class="avatar-scroll" id="split-between-container"></div>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; width: 100%; margin-top: 25px;">
                 <button class="modal-close-btn" id="btn-assignment-cancel" style="background: #21242D; color: #fff;">Cancel</button>
                 <button class="modal-close-btn" id="btn-assignment-save" style="background: var(--accent-blue); color: #000;">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="new-trip-modal" class="modal-overlay hidden">
+        <div class="glass-modal-card" style="width: 90%; max-width: 400px; padding: 25px 20px;">
+            <h3 class="modal-title" style="margin-bottom: 20px;">Create New Trip</h3>
+            <div style="width: 100%; display: flex; flex-direction: column; gap: 15px; text-align: left;">
+                <div class="modal-input-glass" style="padding: 15px;">
+                    <input type="text" id="new-trip-name" placeholder="e.g. Tokyo Trip 2026 🗼" style="width: 100%; text-align: left; font-size: 1.1rem;">
+                </div>
+                <div>
+                    <label style="color: var(--text-dim); font-size: 0.85rem; margin-left: 5px;">DATE RANGE</label>
+                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                        <div class="modal-input-glass" style="padding: 12px; flex: 1;">
+                            <input type="date" id="new-trip-start" value="2026-09-02" style="width: 100%; color: var(--text-main); text-align: center;">
+                        </div>
+                        <div class="modal-input-glass" style="padding: 12px; flex: 1;">
+                            <input type="date" id="new-trip-end" value="2026-09-10" style="width: 100%; color: var(--text-main); text-align: center;">
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label style="color: var(--text-dim); font-size: 0.85rem; margin-left: 5px;">MEMBERS</label>
+                    <div class="modal-input-glass" style="padding: 10px 15px; margin-top: 5px; display: flex; justify-content: space-between;">
+                        <input type="text" id="new-member-input" placeholder="e.g. Amy" style="width: 70%; text-align: left;">
+                        <button id="btn-add-member" style="background: var(--accent-blue); color: #000; border: none; padding: 8px 15px; border-radius: 12px; font-weight: bold; cursor: pointer;">Add</button>
+                    </div>
+                </div>
+                <div class="avatar-scroll" id="new-trip-members-list" style="min-height: 50px; flex-wrap: wrap; overflow: visible;"></div>
+            </div>
+            <div style="display: flex; gap: 10px; width: 100%; margin-top: 25px;">
+                <button class="modal-close-btn" id="btn-new-trip-cancel" style="background: #21242D; color: #fff;">Cancel</button>
+                <button class="modal-close-btn" id="btn-new-trip-save" style="background: var(--accent-blue); color: #000;">Create Trip</button>
             </div>
         </div>
     </div>
@@ -203,46 +266,6 @@
         </div>
     </div>
 
-    <div id="new-trip-modal" class="modal-overlay hidden">
-        <div class="glass-modal-card" style="width: 90%; max-width: 400px; padding: 25px 20px;">
-            <h3 class="modal-title" style="margin-bottom: 20px;">Create New Trip</h3>
-            
-            <div style="width: 100%; display: flex; flex-direction: column; gap: 15px; text-align: left;">
-                <div class="modal-input-glass" style="padding: 15px;">
-                    <input type="text" id="new-trip-name" placeholder="e.g. Tokyo Trip 2026 🗼" style="width: 100%; text-align: left; font-size: 1.1rem;">
-                </div>
-                
-                <div>
-                    <label style="color: var(--text-dim); font-size: 0.85rem; margin-left: 5px;">DATE RANGE</label>
-                    <div style="display: flex; gap: 10px; margin-top: 5px;">
-                        <div class="modal-input-glass" style="padding: 12px; flex: 1;">
-                            <input type="date" id="new-trip-start" value="2026-09-02" style="width: 100%; color: var(--text-main); text-align: center;">
-                        </div>
-                        <div class="modal-input-glass" style="padding: 12px; flex: 1;">
-                            <input type="date" id="new-trip-end" value="2026-09-10" style="width: 100%; color: var(--text-main); text-align: center;">
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    <label style="color: var(--text-dim); font-size: 0.85rem; margin-left: 5px;">MEMBERS</label>
-                    <div class="modal-input-glass" style="padding: 10px 15px; margin-top: 5px; display: flex; justify-content: space-between;">
-                        <input type="text" id="new-member-input" placeholder="e.g. Amy" style="width: 70%; text-align: left;">
-                        <button id="btn-add-member" style="background: var(--accent-blue); color: #000; border: none; padding: 8px 15px; border-radius: 12px; font-weight: bold; cursor: pointer;">Add</button>
-                    </div>
-                </div>
-
-                <div class="avatar-scroll" id="new-trip-members-list" style="min-height: 50px; flex-wrap: wrap; overflow: visible;">
-                </div>
-            </div>
-            
-            <div style="display: flex; gap: 10px; width: 100%; margin-top: 25px;">
-                <button class="modal-close-btn" id="btn-new-trip-cancel" style="background: #21242D; color: #fff;">Cancel</button>
-                <button class="modal-close-btn" id="btn-new-trip-save" style="background: var(--accent-blue); color: #000;">Create Trip</button>
-            </div>
-        </div>
-    </div>
-
-    <script type="module" src="app.js?v=32.0"></script>
+    <script type="module" src="app.js?v=33.0"></script>
 </body>
 </html>

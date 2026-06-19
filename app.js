@@ -1,5 +1,5 @@
 // ==========================================
-// 🌟 FIREBASE SETUP (自己換走啲 Config 呀！)
+// 🌟 FIREBASE SETUP (自己換走啲 Config 呀！唔好又話我唔提你！)
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -18,7 +18,7 @@ const db = getFirestore(app);
 
 // 🌟 SPA Navigation State
 let currentTripMode = null; 
-let currentTripId = null; // Track 住 Firebase ID
+let currentTripId = null; 
 
 function navigateTo(pageId) {
     document.querySelectorAll('.app-page').forEach(p => p.classList.remove('active'));
@@ -30,7 +30,7 @@ function navigateTo(pageId) {
 // ==========================================
 async function loadTrips() {
     const tripList = document.getElementById('trip-list-container');
-    tripList.innerHTML = ''; // 清空 UI
+    tripList.innerHTML = ''; 
     
     try {
         const q = query(collection(db, "trips"), orderBy("createdAt", "desc"));
@@ -81,25 +81,12 @@ async function loadExpenses(tripId) {
 loadTrips();
 
 // 🌟 Home & Trip Events
-document.getElementById('btn-back-home').addEventListener('click', () => {
-    navigateTo('page-home');
-});
+document.getElementById('btn-back-home').addEventListener('click', () => { navigateTo('page-home'); });
+document.getElementById('fab-home').addEventListener('click', () => { currentTripMode = null; currentTripId = null; navigateTo('page-scanner'); });
+document.getElementById('fab-trip').addEventListener('click', () => { navigateTo('page-scanner'); });
+document.getElementById('btn-cancel-scan').addEventListener('click', () => { navigateTo(currentTripMode ? 'page-trip' : 'page-home'); });
 
-document.getElementById('fab-home').addEventListener('click', () => {
-    currentTripMode = null; 
-    currentTripId = null;
-    navigateTo('page-scanner');
-});
-
-document.getElementById('fab-trip').addEventListener('click', () => {
-    navigateTo('page-scanner');
-});
-
-document.getElementById('btn-cancel-scan').addEventListener('click', () => {
-    navigateTo(currentTripMode ? 'page-trip' : 'page-home');
-});
-
-// 🌟 Avatar Bubble Selection Logic
+// 🌟 Avatar Bubble Logic (Scanner Modal)
 document.querySelectorAll('#paid-by-container').forEach(container => {
     container.addEventListener('click', function(e) {
         if(e.target.classList.contains('avatar-bubble')) {
@@ -108,7 +95,6 @@ document.querySelectorAll('#paid-by-container').forEach(container => {
         }
     });
 });
-
 document.querySelectorAll('#split-between-container').forEach(container => {
     container.addEventListener('click', function(e) {
         if(e.target.classList.contains('checkable')) {
@@ -117,7 +103,7 @@ document.querySelectorAll('#split-between-container').forEach(container => {
     });
 });
 
-// 🌟 Existing Variables & Functions
+// 🌟 BASIC Variables
 const btnSnap = document.getElementById('btn-snap');
 const cameraInput = document.getElementById('camera-input');
 const resultOrb = document.getElementById('result-orb');
@@ -157,7 +143,6 @@ let scannedTax = 0.00;
 let currentGrandTotal = 0.00; 
 let currentPerPerson = 0.00;  
 let lastScannedImageFile = null; 
-
 let globalTipValue = 5;
 let globalSplitValue = 1;
 
@@ -352,13 +337,12 @@ btnNext.addEventListener('click', async () => {
 
 btnAssignmentCancel.addEventListener('click', () => { assignmentModal.classList.add('hidden'); });
 
-// 🌟 SAVE EXPENSE TO FIREBASE
+// 🌟 SAVE SCANNER EXPENSE TO FIREBASE
 btnAssignmentSave.addEventListener('click', async () => {
     const title = expenseTitleInput.value.trim() || 'Untitled Expense';
     const activePayer = document.querySelector('#paid-by-container .avatar-bubble.active');
     const payerName = activePayer ? activePayer.innerText : 'Unknown';
     
-    // Build array of who is splitting
     const splitNodes = document.querySelectorAll('#split-between-container .avatar-bubble.active');
     const splitCount = splitNodes.length || 1;
     let splitArray = [];
@@ -374,10 +358,8 @@ btnAssignmentSave.addEventListener('click', async () => {
     };
 
     try {
-        // Save to Firebase Subcollection (trips/{tripId}/expenses)
         await addDoc(collection(db, `trips/${currentTripId}/expenses`), expenseData);
         
-        // Immediate UI update so user doesn't wait
         const timeline = document.getElementById('trip-timeline');
         const newItem = document.createElement('div');
         newItem.className = 'glass-box';
@@ -520,7 +502,6 @@ btnNewTripSave.addEventListener('click', async () => {
     if (!tripName) { showNoticeModal('Error', '大佬，打個 Trip Name 先啦！'); return; }
     if (currentNewTripMembers.length === 0) { showNoticeModal('Error', '起碼要有自己一個 Member 啦！'); return; }
     
-    // Disable 制費事俾你狂㩒
     btnNewTripSave.disabled = true;
     btnNewTripSave.textContent = 'Saving...';
 
@@ -534,7 +515,7 @@ btnNewTripSave.addEventListener('click', async () => {
 
     try {
         const docRef = await addDoc(collection(db, "trips"), tripData);
-        renderTripCard(docRef.id, tripData); // Render locally
+        renderTripCard(docRef.id, tripData); 
         newTripModal.classList.add('hidden');
     } catch (e) {
         showNoticeModal('Error', 'Save failed! Check Firebase config.');
@@ -548,7 +529,6 @@ btnNewTripSave.addEventListener('click', async () => {
 function renderTripCard(id, data) {
     const tripList = document.getElementById('trip-list-container');
     
-    // Remove "Loading" or "No Trips" msg if it exists
     const msg = tripList.querySelector('div[style*="text-align: center"]');
     if (msg) msg.remove();
 
@@ -566,7 +546,6 @@ function renderTripCard(id, data) {
     wrapper.className = 'trip-item-wrapper';
     wrapper.setAttribute('data-id', id);
     
-    // 🌟 DELETE FROM FIREBASE
     const deleteBtn = document.createElement('div');
     deleteBtn.className = 'trip-item-delete';
     deleteBtn.textContent = 'Delete';
@@ -595,12 +574,11 @@ function renderTripCard(id, data) {
         if (newCard.classList.contains('swiped')) return; 
         
         currentTripMode = data.name; 
-        currentTripId = id; // IMPORTANT: Set current Firebase ID
+        currentTripId = id; 
         
         document.getElementById('trip-header-title').textContent = data.name;
         updateAssignmentModalMembers(data.members);
         
-        // 🌟 LOAD EXPENSES FROM FIREBASE
         loadExpenses(id);
         
         navigateTo('page-trip');
@@ -630,3 +608,91 @@ function updateAssignmentModalMembers(membersArray) {
         splitContainer.appendChild(splitBubble);
     });
 }
+
+
+// ==========================================
+// 🌟 NEW: BASIC MANUAL EXPENSE LOGIC
+// ==========================================
+const btnManualAdd = document.getElementById('btn-manual-add');
+const basicExpenseModal = document.getElementById('basic-expense-modal');
+const btnBasicCancel = document.getElementById('btn-basic-cancel');
+const btnBasicSave = document.getElementById('btn-basic-save');
+const basicExpenseTitle = document.getElementById('basic-expense-title');
+const basicExpenseAmount = document.getElementById('basic-expense-amount');
+const basicPaidByContainer = document.getElementById('basic-paid-by-container');
+
+btnManualAdd.addEventListener('click', () => {
+    if (!currentTripId) return; 
+    
+    basicExpenseTitle.value = '';
+    basicExpenseAmount.value = '';
+    
+    const originalPaidBy = document.getElementById('paid-by-container').innerHTML;
+    basicPaidByContainer.innerHTML = originalPaidBy;
+    
+    basicPaidByContainer.querySelectorAll('.avatar-bubble').forEach(bubble => {
+        bubble.addEventListener('click', function() {
+            basicPaidByContainer.querySelectorAll('.avatar-bubble').forEach(x => x.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+
+    basicExpenseModal.classList.remove('hidden');
+});
+
+btnBasicCancel.addEventListener('click', () => {
+    basicExpenseModal.classList.add('hidden');
+});
+
+btnBasicSave.addEventListener('click', async () => {
+    const title = basicExpenseTitle.value.trim() || 'Untitled Expense';
+    const amount = parseFloat(basicExpenseAmount.value);
+    
+    if (isNaN(amount) || amount <= 0) {
+        showNoticeModal('Error', '大佬，打返個有效嘅銀碼先啦！');
+        return;
+    }
+
+    const activePayer = basicPaidByContainer.querySelector('.avatar-bubble.active');
+    const payerName = activePayer ? activePayer.textContent.trim() : 'Unknown';
+    
+    const allMembers = Array.from(basicPaidByContainer.querySelectorAll('.avatar-bubble')).map(b => b.textContent.trim());
+    const splitCount = allMembers.length || 1;
+
+    btnBasicSave.disabled = true;
+    btnBasicSave.textContent = 'Saving...';
+
+    const expenseData = {
+        title: title,
+        amount: amount,
+        paidBy: payerName,
+        splitBetween: allMembers,
+        splitCount: splitCount,
+        createdAt: new Date().toISOString()
+    };
+
+    try {
+        await addDoc(collection(db, `trips/${currentTripId}/expenses`), expenseData);
+        
+        const timeline = document.getElementById('trip-timeline');
+        const newItem = document.createElement('div');
+        newItem.className = 'glass-box';
+        newItem.style.marginBottom = '15px';
+        newItem.innerHTML = `
+            <div style="display:flex; justify-content: space-between; align-items: center;">
+                <div style="color: white; font-weight: 600; font-size: 1.1rem;">${title}</div>
+                <div style="color: var(--accent-blue); font-size: 1.4rem; font-weight: 700;">$${amount.toFixed(2)}</div>
+            </div>
+            <div style="color: var(--text-dim); font-size: 0.85rem; margin-top: 5px;">Paid by ${payerName} • Split with ${splitCount} ppl</div>
+        `;
+        timeline.insertBefore(newItem, timeline.firstChild);
+
+        basicExpenseModal.classList.add('hidden');
+    } catch (e) {
+        console.error("Save Error:", e);
+        showNoticeModal('Error', 'Save 唔到落 Firebase，自己開 Console 睇下！');
+    } finally {
+        btnBasicSave.disabled = false;
+        btnBasicSave.textContent = 'Save';
+    }
+});
