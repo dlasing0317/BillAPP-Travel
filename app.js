@@ -1,5 +1,5 @@
 // ==========================================
-// 🌟 FIREBASE SETUP (已經幫你條大懶蟲入好晒 Key！)
+// 🌟 FIREBASE SETUP 
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -28,7 +28,7 @@ function navigateTo(pageId) {
 }
 
 // ==========================================
-// 🌟 DUAL SWIPE LOGIC (左拉 Delete，右拉 Edit)
+// 🌟 FULL SWIPE TO ACTION LOGIC (左拉到底 Delete，右拉到底 Edit)
 // ==========================================
 function setupSwipeActions(cardElement) {
     let startX = 0;
@@ -37,7 +37,9 @@ function setupSwipeActions(cardElement) {
     
     cardElement.addEventListener('touchstart', (e) => {
         startX = e.touches[0].clientX;
+        currentX = startX;
         isDragging = true;
+        cardElement.style.transition = 'none'; // 手指拉緊嗰陣唔要 Delay 動畫
     }, {passive: true});
 
     cardElement.addEventListener('touchmove', (e) => {
@@ -45,29 +47,49 @@ function setupSwipeActions(cardElement) {
         currentX = e.touches[0].clientX;
         const diff = currentX - startX;
         
-        if (diff > 40) { // 向右拉 -> Edit (綠色)
-            cardElement.classList.add('swiped-right');
-            cardElement.classList.remove('swiped-left');
-        } else if (diff < -40) { // 向左拉 -> Delete (紅色)
-            cardElement.classList.add('swiped-left');
-            cardElement.classList.remove('swiped-right');
-        } else if (Math.abs(diff) < 20) { // 推返埋
-            cardElement.classList.remove('swiped-left');
-            cardElement.classList.remove('swiped-right');
+        // 拉過 10px 先當 Swipe，防止手震變 Click
+        if (Math.abs(diff) > 10) {
+            cardElement.setAttribute('data-swiping', 'true');
+        }
+        
+        // 張卡跟住手指郁，最多俾佢拉到 120px 睇到下面啲色
+        if (diff > 0) {
+            cardElement.style.transform = `translateX(${Math.min(diff, 120)}px)`;
+        } else {
+            cardElement.style.transform = `translateX(${Math.max(diff, -120)}px)`;
         }
     }, {passive: true});
 
-    cardElement.addEventListener('touchend', () => { isDragging = false; });
-}
+    cardElement.addEventListener('touchend', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        
+        // 放手嗰陣俾返個回彈動畫佢
+        cardElement.style.transition = 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)'; 
+        
+        const diff = currentX - startX;
+        const wrapper = cardElement.closest('.trip-item-wrapper');
 
-// 點空白位自動收埋所有 Swipe 掣
-document.addEventListener('touchstart', (e) => {
-    if (!e.target.closest('.trip-item-wrapper')) {
-        document.querySelectorAll('.trip-card.swiped-left, .trip-card.swiped-right').forEach(card => {
-            card.classList.remove('swiped-left', 'swiped-right');
-        });
-    }
-}, {passive: true});
+        // 🌟 判斷拉嘅距離 (Threshold: 90px)，夠遠就自動 Trigger Action
+        if (diff > 90) { 
+            // 向右拉到底 -> 觸發 Edit
+            const editBtn = wrapper.querySelector('.action-edit');
+            if (editBtn) editBtn.click();
+        } else if (diff < -90) { 
+            // 向左拉到底 -> 觸發 Delete
+            const deleteBtn = wrapper.querySelector('.action-delete');
+            if (deleteBtn) deleteBtn.click();
+        }
+        
+        // 無論有無 Trigger，張卡最後都要乖乖地彈返原位
+        cardElement.style.transform = 'translateX(0)';
+        
+        // 0.1秒後解除 Swiping 狀態，俾佢可以正常 Click 返入去
+        setTimeout(() => {
+            cardElement.removeAttribute('data-swiping');
+        }, 100);
+    });
+}
 
 
 // ==========================================
@@ -109,6 +131,7 @@ async function loadExpenses(tripId) {
             const wrapper = document.createElement('div');
             wrapper.className = 'trip-item-wrapper expense-wrapper';
             
+            // 底層綠色 Edit / 紅色 Delete 背景
             const actionBg = document.createElement('div');
             actionBg.className = 'trip-item-action-bg';
             actionBg.innerHTML = `
@@ -116,12 +139,12 @@ async function loadExpenses(tripId) {
                 <div class="action-delete">Delete</div>
             `;
 
-            // Expense Delete Action
+            // Delete Event
             actionBg.querySelector('.action-delete').addEventListener('click', async () => {
                 try { await deleteDoc(doc(db, `trips/${tripId}/expenses`, docSnap.id)); loadExpenses(tripId); } catch(e) { alert('Delete fail!'); }
             });
             
-            // Expense Edit Action
+            // Edit Event
             actionBg.querySelector('.action-edit').addEventListener('click', () => {
                 editingExpenseId = docSnap.id;
                 document.getElementById('expense-modal-title').textContent = 'Edit Expense';
@@ -139,7 +162,6 @@ async function loadExpenses(tripId) {
                     });
                 });
                 document.getElementById('basic-expense-modal').classList.remove('hidden');
-                wrapper.querySelector('.trip-card').classList.remove('swiped-right'); // 收起掣
             });
 
             const newItem = document.createElement('div');
@@ -317,7 +339,6 @@ function renderTripCard(id, data) {
         currentNewTripMembers = [...data.members];
         renderNewTripMembers();
         document.getElementById('new-trip-modal').classList.remove('hidden');
-        wrapper.querySelector('.trip-card').classList.remove('swiped-right'); 
     });
 
     const newCard = document.createElement('div');
@@ -332,8 +353,10 @@ function renderTripCard(id, data) {
     
     setupSwipeActions(newCard); 
     
-    newCard.addEventListener('click', () => {
-        if (newCard.classList.contains('swiped-left') || newCard.classList.contains('swiped-right')) return; 
+    newCard.addEventListener('click', (e) => {
+        // 🌟 防誤觸機制：如果係 Swipe 緊就唔好 Click 入去
+        if (newCard.getAttribute('data-swiping') === 'true') return; 
+        
         currentTripMode = data.name; currentTripId = id; currentTripData = data;
         document.getElementById('trip-header-title').textContent = data.name;
         updateAssignmentModalMembers(data.members);
