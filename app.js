@@ -28,7 +28,39 @@ function navigateTo(pageId) {
 }
 
 // ==========================================
-// 🌟 FULL SWIPE TO ACTION LOGIC (左拉到底 Delete，右拉到底 Edit)
+// 🌟 CONFIRM MODAL LOGIC (防呆專用)
+// ==========================================
+let confirmActionCallback = null;
+const confirmModal = document.getElementById('confirm-modal');
+const btnConfirmCancel = document.getElementById('btn-confirm-cancel');
+const btnConfirmDelete = document.getElementById('btn-confirm-delete');
+const confirmMessage = document.getElementById('confirm-message');
+
+function showConfirmModal(msg, callback) {
+    confirmMessage.textContent = msg;
+    confirmActionCallback = callback;
+    confirmModal.classList.remove('hidden');
+}
+
+btnConfirmCancel.addEventListener('click', () => {
+    confirmModal.classList.add('hidden');
+    confirmActionCallback = null;
+    
+    // 如果係 Swipe 出嚟嘅，取消嗰陣要彈返埋張卡
+    document.querySelectorAll('.trip-card.swiped-left').forEach(card => {
+        card.classList.remove('swiped-left');
+    });
+});
+
+btnConfirmDelete.addEventListener('click', () => {
+    if (confirmActionCallback) confirmActionCallback();
+    confirmModal.classList.add('hidden');
+    confirmActionCallback = null;
+});
+
+
+// ==========================================
+// 🌟 FULL SWIPE TO ACTION LOGIC
 // ==========================================
 function setupSwipeActions(cardElement) {
     let startX = 0;
@@ -39,7 +71,7 @@ function setupSwipeActions(cardElement) {
         startX = e.touches[0].clientX;
         currentX = startX;
         isDragging = true;
-        cardElement.style.transition = 'none'; // 手指拉緊嗰陣唔要 Delay 動畫
+        cardElement.style.transition = 'none'; 
     }, {passive: true});
 
     cardElement.addEventListener('touchmove', (e) => {
@@ -47,12 +79,10 @@ function setupSwipeActions(cardElement) {
         currentX = e.touches[0].clientX;
         const diff = currentX - startX;
         
-        // 拉過 10px 先當 Swipe，防止手震變 Click
         if (Math.abs(diff) > 10) {
             cardElement.setAttribute('data-swiping', 'true');
         }
         
-        // 張卡跟住手指郁，最多俾佢拉到 120px 睇到下面啲色
         if (diff > 0) {
             cardElement.style.transform = `translateX(${Math.min(diff, 120)}px)`;
         } else {
@@ -63,33 +93,34 @@ function setupSwipeActions(cardElement) {
     cardElement.addEventListener('touchend', (e) => {
         if (!isDragging) return;
         isDragging = false;
-        
-        // 放手嗰陣俾返個回彈動畫佢
         cardElement.style.transition = 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)'; 
         
         const diff = currentX - startX;
         const wrapper = cardElement.closest('.trip-item-wrapper');
 
-        // 🌟 判斷拉嘅距離 (Threshold: 90px)，夠遠就自動 Trigger Action
         if (diff > 90) { 
-            // 向右拉到底 -> 觸發 Edit
             const editBtn = wrapper.querySelector('.action-edit');
             if (editBtn) editBtn.click();
         } else if (diff < -90) { 
-            // 向左拉到底 -> 觸發 Delete
             const deleteBtn = wrapper.querySelector('.action-delete');
             if (deleteBtn) deleteBtn.click();
         }
         
-        // 無論有無 Trigger，張卡最後都要乖乖地彈返原位
         cardElement.style.transform = 'translateX(0)';
         
-        // 0.1秒後解除 Swiping 狀態，俾佢可以正常 Click 返入去
         setTimeout(() => {
             cardElement.removeAttribute('data-swiping');
         }, 100);
     });
 }
+
+document.addEventListener('touchstart', (e) => {
+    if (!e.target.closest('.trip-item-wrapper')) {
+        document.querySelectorAll('.trip-card.swiped-left, .trip-card.swiped-right').forEach(card => {
+            card.classList.remove('swiped-left', 'swiped-right');
+        });
+    }
+}, {passive: true});
 
 
 // ==========================================
@@ -127,24 +158,28 @@ async function loadExpenses(tripId) {
         
         querySnapshot.forEach((docSnap) => {
             const data = docSnap.data();
-            
             const wrapper = document.createElement('div');
             wrapper.className = 'trip-item-wrapper expense-wrapper';
             
-            // 底層綠色 Edit / 紅色 Delete 背景
             const actionBg = document.createElement('div');
             actionBg.className = 'trip-item-action-bg';
-            actionBg.innerHTML = `
-                <div class="action-edit">Edit</div>
-                <div class="action-delete">Delete</div>
-            `;
+            actionBg.innerHTML = `<div class="action-edit">Edit</div><div class="action-delete">Delete</div>`;
 
-            // Delete Event
-            actionBg.querySelector('.action-delete').addEventListener('click', async () => {
-                try { await deleteDoc(doc(db, `trips/${tripId}/expenses`, docSnap.id)); loadExpenses(tripId); } catch(e) { alert('Delete fail!'); }
+            // 🌟 升級：Expense Confirm Delete
+            actionBg.querySelector('.action-delete').addEventListener('click', () => {
+                const card = wrapper.querySelector('.trip-card');
+                card.classList.add('swiped-left'); // 保持 Swipe 狀態
+                
+                showConfirmModal(`Delete "${data.title}"?`, async () => {
+                    try { 
+                        await deleteDoc(doc(db, `trips/${tripId}/expenses`, docSnap.id)); 
+                        loadExpenses(tripId); 
+                    } catch(e) { 
+                        alert('Delete fail!'); 
+                    }
+                });
             });
             
-            // Edit Event
             actionBg.querySelector('.action-edit').addEventListener('click', () => {
                 editingExpenseId = docSnap.id;
                 document.getElementById('expense-modal-title').textContent = 'Edit Expense';
@@ -175,7 +210,6 @@ async function loadExpenses(tripId) {
             `;
             
             setupSwipeActions(newItem);
-            
             wrapper.appendChild(actionBg);
             wrapper.appendChild(newItem);
             timeline.insertBefore(wrapper, timeline.firstChild);
@@ -231,16 +265,12 @@ function renderNewTripMembers() {
         bubble.className = 'avatar-bubble';
         bubble.style.display = 'flex';
         bubble.style.alignItems = 'center';
-        bubble.innerHTML = `
-            ${member} 
-            <span class="remove-btn" style="color: #ff4444; margin-left: 8px; font-size: 1.2rem; cursor: pointer; line-height: 1;">×</span>
-        `;
+        bubble.innerHTML = `${member} <span class="remove-btn" style="color: #ff4444; margin-left: 8px; font-size: 1.2rem; cursor: pointer; line-height: 1;">×</span>`;
         
         bubble.querySelector('.remove-btn').addEventListener('click', () => {
             currentNewTripMembers = currentNewTripMembers.filter(m => m !== member);
             renderNewTripMembers();
         });
-        
         newTripMembersList.appendChild(bubble);
     });
 }
@@ -253,7 +283,6 @@ btnAddMember.addEventListener('click', () => {
         renderNewTripMembers();
     }
 });
-
 newMemberInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') btnAddMember.click(); });
 
 btnAddTrip.addEventListener('click', () => {
@@ -321,13 +350,21 @@ function renderTripCard(id, data) {
     
     const actionBg = document.createElement('div');
     actionBg.className = 'trip-item-action-bg';
-    actionBg.innerHTML = `
-        <div class="action-edit">Edit</div>
-        <div class="action-delete">Delete</div>
-    `;
+    actionBg.innerHTML = `<div class="action-edit">Edit</div><div class="action-delete">Delete</div>`;
 
-    actionBg.querySelector('.action-delete').addEventListener('click', async () => {
-        try { await deleteDoc(doc(db, "trips", id)); wrapper.remove(); } catch(e) { alert('Delete fail!'); }
+    // 🌟 升級：Trip Confirm Delete
+    actionBg.querySelector('.action-delete').addEventListener('click', () => {
+        const card = wrapper.querySelector('.trip-card');
+        card.classList.add('swiped-left');
+        
+        showConfirmModal(`Delete Trip "${data.name}"?\nAll expenses inside will be lost!`, async () => {
+            try { 
+                await deleteDoc(doc(db, "trips", id)); 
+                wrapper.remove(); 
+            } catch(e) { 
+                alert('Delete fail!'); 
+            }
+        });
     });
     
     actionBg.querySelector('.action-edit').addEventListener('click', () => {
@@ -354,9 +391,7 @@ function renderTripCard(id, data) {
     setupSwipeActions(newCard); 
     
     newCard.addEventListener('click', (e) => {
-        // 🌟 防誤觸機制：如果係 Swipe 緊就唔好 Click 入去
         if (newCard.getAttribute('data-swiping') === 'true') return; 
-        
         currentTripMode = data.name; currentTripId = id; currentTripData = data;
         document.getElementById('trip-header-title').textContent = data.name;
         updateAssignmentModalMembers(data.members);
