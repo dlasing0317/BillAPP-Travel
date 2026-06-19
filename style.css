@@ -110,42 +110,48 @@ html, body { width: 100%; height: 100dvh; background-color: var(--bg-main); back
 .crop-hint { position: absolute; top: calc(env(safe-area-inset-top) + 20px); left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 20px; color: #FFFFFF; font-size: 1rem; font-weight: 600; z-index: 10; pointer-events: none; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 10px rgba(0,0,0,0.5); letter-spacing: 0.5px; }
 
 /* ==========================================
-   🌟 SWIPE TO DELETE UI 
+   🌟 DUAL SWIPE ACTIONS UI (EDIT / DELETE)
    ========================================== */
 .trip-item-wrapper {
     position: relative;
     width: 100%;
     margin-bottom: 15px;
     border-radius: 24px;
-    overflow: hidden;
-    background: #FF3B30; /* iOS 紅色 */
+    background: transparent;
 }
 
-.trip-item-delete {
+.trip-item-action-bg {
     position: absolute;
-    right: 0;
-    top: 0;
-    height: 100%;
-    width: 85px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: white;
-    font-weight: 700;
-    font-size: 1.1rem;
-    cursor: pointer;
-    z-index: 0;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex; justify-content: space-between;
+    border-radius: 24px; overflow: hidden; z-index: 0;
+}
+
+.action-edit {
+    background: #34C759; /* iOS 綠色 */
+    width: 50%; display: flex; align-items: center; padding-left: 25px;
+    color: white; font-weight: 700; font-size: 1.1rem; cursor: pointer;
+}
+
+.action-delete {
+    background: #FF3B30; /* iOS 紅色 */
+    width: 50%; display: flex; align-items: center; justify-content: flex-end; padding-right: 25px;
+    color: white; font-weight: 700; font-size: 1.1rem; cursor: pointer;
 }
 
 .trip-card {
-    margin-bottom: 0 !important; /* 覆蓋舊嘅 Margin */
-    position: relative;
-    z-index: 1;
+    position: relative; z-index: 1;
     transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-    touch-action: pan-y; /* 確保唔會阻礙上下 Scroll */
+    touch-action: pan-y;
     background: var(--bg-main);
+    width: 100%; height: 100%;
+    margin-bottom: 0 !important; /* 確保 wrapper 負責 margin */
 }
 
-.trip-card.swiped {
-    transform: translateX(-85px);
-}
+.trip-card.swiped-left { transform: translateX(-85px); }
+.trip-card.swiped-right { transform: translateX(85px); }
+
+/* Expense Timeline 專用 Wrapper 修飾 */
+.expense-wrapper { border-radius: 20px; }
+.expense-wrapper .trip-item-action-bg { border-radius: 20px; }
